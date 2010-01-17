@@ -1,0 +1,224 @@
+;; ---------- Some influential variables ---------------------------------------
+(ido-mode t)                                        
+(setq ido-enable-flex-matching t)                  
+(setq ido-everywhere t)                          
+
+(add-to-list 'load-path "~/.emacs.d/")
+(require 'textmate-mode)
+(textmate-mode)
+
+(require 'textmate)
+(textmate-proj-mode)
+
+;; don't show so many messages on startup
+(setq inhibit-startup-message t)
+(setq inhibit-startup-echo-area-message t)
+
+;; ---------- Some influential variables ---------------------------------------
+
+;; set background color
+(set-background-color "gray97")
+
+;; scroll one line at a time
+(setq scroll-step 1)
+
+;; make "yes or no" "y or n"
+(fset 'yes-or-no-p 'y-or-n-p)
+
+;; window frame title
+(setq frame-title-format "emacs [%b %*%+ %f]")
+(setq icon-title-format "emacs [%b]")
+
+;; no bells please
+(setq ring-bell-function 'ignore)
+
+;; make all backups in a single directory
+(setq backup-directory-alist
+      `(("." . ,(expand-file-name "~/.emacs.d/backups"))))
+
+(setq truncate-partial-width-windows nil)
+
+
+;; mouse scroll
+(setq mouse-wheel-scroll-amount '(1 ((shift) . 1) ((control))))
+(set-scroll-bar-mode 'right)   ; replace 'right with 'left to place it to the left
+;; enable otherwise disabled commands
+(put 'set-goal-column  'disabled nil)
+(put 'downcase-region  'disabled nil)
+(put 'upcase-region    'disabled nil)
+(put 'narrow-to-region 'disabled nil)
+(put 'narrow-to-page   'disabled nil)
+
+;; hippie-expand functions
+(setq hippie-expand-try-functions-list
+      '(try-complete-file-name-partially
+        try-complete-file-name
+        try-expand-all-abbrevs
+        ;try-expand-list
+        ;try-expand-line
+        try-expand-dabbrev
+        try-expand-dabbrev-all-buffers
+        try-expand-dabbrev-from-kill
+        try-complete-lisp-symbol-partially
+        try-complete-lisp-symbol))
+
+
+;; ---------- Additional packages to load --------------------------------------
+
+;; nice config file modes
+(require 'generic-x)
+
+;; undo and redo functionality with special module
+;; (require 'redo)
+;; (global-set-key (kbd "C-x C-r") 'redo)
+
+;; Vip Mode
+(global-set-key (kbd "C-z")   'vip-mode)
+
+;; compile/make
+(global-set-key (kbd "M-r")   'recompile)
+(global-set-key (kbd "M-R") 'compile)
+
+;; windmove: easily move between windows
+(global-set-key (kbd "C-x <down>")  'windmove-down)
+(global-set-key (kbd "C-x <up>")    'windmove-up)
+(global-set-key (kbd "C-x <right>") 'windmove-right)
+(global-set-key (kbd "C-x <left>")  'windmove-left)
+
+;; custom margin keys (useful for Python indentation)
+(global-set-key (kbd "C-M-+") 'increase-left-margin)
+(global-set-key (kbd "C-M--") 'decrease-left-margin)
+
+;; C-k is kill-whole-line
+(global-set-key (kbd "C-k") 'kill-whole-line)
+
+;; make commenting easy ;)
+(global-set-key (kbd "A-?") 'comment-region)
+(global-set-key (kbd "M-?") 'comment-region)
+
+;; toggle line numer display
+(global-set-key (kbd "C-c n") 'global-linum-mode)
+
+;; indent automatically
+(global-set-key (kbd "RET") 'newline-and-indent)
+
+;; file cache
+(define-key minibuffer-local-map (kbd "C-f") 'file-cache-minibuffer-complete)
+
+
+;; ---------- Custom interactive functions -------------------------------------
+
+(defun display-same-buffer-other-window ()
+  "Display the current buffer in the other window too."
+  (interactive)
+  (let* ((buffer (current-buffer)))
+    (other-window 1)
+    (switch-to-buffer buffer)))
+
+(defun kill-other-buffer-and-window ()
+  "Kill other window's buffer and the window."
+  (interactive "")
+  (other-window 1)
+  (kill-buffer-and-window))
+
+(defun fullscreen ()
+  "Toggle fullscreen editing."
+  (interactive)
+  (menu-bar-mode nil)
+  (set-frame-parameter nil 'fullscreen
+		       (if (frame-parameter nil 'fullscreen) nil 'fullboth)))
+
+(defun kill-other-buffer ()
+  "Kill other window's buffer."
+  (interactive)
+  (other-window 1)
+  (kill-buffer nil)
+  (other-window 1))
+
+(defun find-file-with-linenum ()
+  "Find file and go to line number specifed with :num."
+  (interactive)
+  (let* ((fname (ffap-prompter))
+	 (cpos (string-match ":" fname))
+	 (line (if cpos (string-to-number (substring fname (1+ cpos))) 0))
+	 (fpos (or (and (> line 0) cpos) (length fname))))
+    (find-file-at-point (substring fname 0 fpos))
+    (when cpos (goto-line (string-to-number (substring fname (1+ cpos)))))))
+
+(defun isearch-kill-match ()
+  "Kill the current isearch match string and continue searching."
+  (interactive)
+  (kill-region isearch-other-end (point)))
+
+(defun isearch-occur ()
+  "Invoke `occur' from within isearch."
+  (interactive)
+  (let ((case-fold-search isearch-case-fold-search))
+    (occur (if isearch-regexp isearch-string (regexp-quote isearch-string)))))
+
+(defun isearch-yank-whole-symbol ()
+  "Pull symbol at point into search string."
+  (interactive)
+  (isearch-yank-string (symbol-name (symbol-at-point))))
+
+(defvar current-this-regex "")
+(defun search-for-this-word ()
+  "Emulate Vim's `*' binding."
+  (interactive)
+  (let ((tag (find-tag-default)))
+    (if tag (setq new-this-regex
+		  (concat "\\<" (regexp-quote tag) "\\>"))
+      (error "point not over tag")))
+  (unless (string-equal new-this-regex current-this-regex)
+    (font-lock-remove-keywords
+     nil (list (list current-this-regex 0 'lazy-highlight-face t)))
+    (font-lock-add-keywords
+     nil (list (list new-this-regex 0 'lazy-highlight-face t)))
+    (setq current-this-regex new-this-regex)
+    (font-lock-fontify-buffer)
+    (message (concat "Searching for " (substring new-this-regex 2 -2))))
+  (unless (search-forward-regexp current-this-regex nil t
+				 (if (looking-at "\\<") 2 1))
+    (beginning-of-buffer)
+    (message "search hit BOTTOM, continuing at TOP")
+    (search-forward-regexp current-this-regex))
+  (while (not (looking-at current-this-regex))
+    (backward-char 1)))
+
+(require 'grep)
+(defun grep (regexp &optional files)
+  "Always grep from the current directory."
+  (interactive
+   (progn
+     (grep-compute-defaults)
+     (let* ((regexp (grep-read-regexp))
+	    (files (grep-read-files regexp)))
+       (list regexp files))))
+  (rgrep regexp files default-directory))
+
+
+
+;; ---------- Python mode specifics --------------------------------------------
+
+(add-hook 'python-mode-hook (lambda ()
+  ;; reveal hidden text (folding!) when moving over it
+  (reveal-mode 1)
+  ;; death to trailing whitespace!
+  ;; (set-variable 'show-trailing-whitespace 1)
+
+  ;; some custom keybindings
+  (local-set-key (kbd "C-c a") 'py-beginning-of-def-or-class)
+  (local-set-key (kbd "M-<right>") 'py-forward-into-nomenclature)
+  (local-set-key (kbd "M-<left>") 'py-backward-into-nomenclature)
+  (local-set-key (kbd "M-DEL") 'py-backward-kill-nomenclature)
+
+  ;; add some local hooks
+  (add-hook 'before-save-hook 'delete-trailing-whitespace nil t)
+  (add-hook 'after-save-hook 'semantic-fetch-tags nil t)
+
+  ;; compile (<f5>) is execute
+  (unless (or (file-exists-p "makefile")
+              (file-exists-p "Makefile"))
+    (set (make-local-variable 'compile-command)
+         (concat "python " buffer-file-name)))
+))
